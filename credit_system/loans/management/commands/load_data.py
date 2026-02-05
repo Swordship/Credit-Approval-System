@@ -11,7 +11,7 @@ class Command(BaseCommand):
         print("Loading customers...")
         # Read customer_data.xlsx with pandas
         # customer_df = pd.read_excel('path/to/file')
-        customer_df = pd.read_excel('Business_Records\customer_data.xlsx')
+        customer_df = pd.read_excel('C:\\Users\\project\\Documents\\Alemeno - Internship assigment\\Credit Approval System - Backend\\Business_Records\\customer_data.xlsx')
         
         # Create a mapping dictionary
         # customer_map = {}  # {excel_customer_id: django_customer_object}
@@ -39,7 +39,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Loaded {len(customer_map)} customers'))
         
         # Read loan_data.xlsx with pandas
-        loan_df = pd.read_excel('Business_Records\loan_data.xlsx')
+        loan_df = pd.read_excel('C:\\Users\\project\\Documents\\Alemeno - Internship assigment\\Credit Approval System - Backend\\Business_Records\\loan_data.xlsx')
         
         # Loop through loans and create Loan objects
         # Use customer_map to get the correct customer object!
@@ -51,10 +51,10 @@ class Command(BaseCommand):
                 loan_amount=row['Loan Amount'],
                 tenure=row['Tenure'],
                 interest_rate=row['Interest Rate'],
-                monthly_payment=row['Monthly Payment'],
-                emis_paid_on_time=row['EMIs Paid On Time'],
-                date_of_approval=row['Date of Approval'],
-                end_date=row['End Date']
+                monthly_payment=row['Monthly payment'],
+                emis_paid_on_time=row['EMIs paid on Time'],
+                date_of_approval=row['Date of Approval'].date(),
+                end_date=row['End Date'].date()
             )
             print(f"✓ Created loan for customer {customer_obj}")
         print(f"✓ Created {len(loan_df)} loans")
