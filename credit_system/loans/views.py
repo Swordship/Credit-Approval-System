@@ -16,7 +16,7 @@ def view_loan(request, loan_id):
     try : 
         loan = Loan.objects.get(id=loan_id)
 
-    except loan.DoesNotExist:
+    except Loan.DoesNotExist:
         return Response(
             {"error": "Loan not found."},
             status=status.HTTP_404_NOT_FOUND

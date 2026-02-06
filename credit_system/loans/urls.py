@@ -1,5 +1,5 @@
 from django.urls import path
-from . import view_loan
+from . import views
 urlpatterns = [
-    path('view-loan/<int:loan_id>/', view_loan, name='view_loan'),
+    path('view-loan/<int:loan_id>/', views.view_loan, name='view_loan'),
 ]
