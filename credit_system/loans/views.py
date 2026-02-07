@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Loan
+from .models import Customer, Loan
 from .serializers import LoanSerializer
 # Create your views here.
 
@@ -24,6 +24,24 @@ def view_loan(request, loan_id):
     
     serializer = LoanSerializer(loan)
 
+    return Response(serializer.data, status=status.HTTP_200_OK)
+@api_view(['GET'])
+def view_loans(request, customer_id):
+    """
+    API endpoint: /view-loan/<customer_id>
+    Method: GET
+    Returns: List of all loans for a customer 
+    """
+    try :
+        customer = Customer.objects.get(id=customer_id)
+
+    except Customer.DoesNotExist:
+        return Response(
+            {"error": "Customer not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    loans = customer.loans.all()  # Using related_name from ForeignKey
+    serializer = LoanSerializer(loans, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 pass
