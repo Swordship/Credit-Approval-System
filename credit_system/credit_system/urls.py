@@ -19,5 +19,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('loans.urls')),  # ADD THIS LINE
+    path('api/', include('loans.urls')),
+    path('api-auth/', include('loans.urls')),  # For DRF's login/logout views
 ]
