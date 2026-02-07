@@ -16,6 +16,7 @@ class LoanSerializer(serializers.ModelSerializer):
     """
     # Nested serializer - show customer details inside loan
     customer = CustomerSerializer(read_only=True)
+    repayments_left = serializers.SerializerMethodField()
     
     class Meta:
         model = Loan
@@ -25,5 +26,16 @@ class LoanSerializer(serializers.ModelSerializer):
             'loan_amount',
             'interest_rate',
             'monthly_payment',
-            'tenure'
+            'tenure',
+            'repayments_left'
         ]
+
+    def get_repayments_left (self , obj):
+        """
+        Calculate repayments left
+        obj = the Loan object
+        """
+        total_payments = obj.tenure
+        payments_made = obj.emis_paid_on_time
+        repayments_left = total_payments - payments_made
+        return repayments_left
