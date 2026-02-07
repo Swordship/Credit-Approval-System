@@ -9,10 +9,27 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = ['id', 'first_name', 'last_name', 'phone_number', 'age']
         # We only show these fields in the API response
-
 class LoanSerializer(serializers.ModelSerializer):
     """
     This converts Loan objects to JSON
+    """
+    # Nested serializer - show customer details inside loan
+    customer = CustomerSerializer(read_only=True)
+    
+    class Meta:
+        model = Loan
+        fields = [
+            'id',
+            'customer',
+            'loan_amount',
+            'interest_rate',
+            'monthly_payment',
+            'tenure'
+        ]
+class LoanListSerializer(serializers.ModelSerializer):
+    """
+    Serializer for listing multiple loans
+    Includes calculated field: repayments_left
     """
     # Nested serializer - show customer details inside loan
     customer = CustomerSerializer(read_only=True)
