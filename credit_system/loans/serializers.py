@@ -56,3 +56,29 @@ class LoanListSerializer(serializers.ModelSerializer):
         payments_made = obj.emis_paid_on_time
         repayments_left = total_payments - payments_made
         return repayments_left
+class CustomerRegisterSerializer(serializers.Serializer):
+    """
+    Serializer for /register endpoint
+    Validates incoming data
+    """
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    age = serializers.IntegerField()
+    monthly_income = serializers.DecimalField(max_digits=10, decimal_places=2)
+    phone_number = serializers.CharField(max_length=15)
+class CustomerResponseSerializer(serializers.ModelSerializer):
+    """
+    Serializer for /register response
+    Returns the created customer data
+    """
+    class Meta:
+        model = Customer
+        fields = [
+            'id',
+            'first_name',
+            'last_name',
+            'age',
+            'phone_number',
+            'monthly_salary',
+            'approved_limit'
+        ]
