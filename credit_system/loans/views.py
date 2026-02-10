@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Customer, Loan
-from .serializers import CustomerRegisterSerializer, CustomerResponseSerializer, LoanListSerializer, LoanSerializer
+from .serializers import CustomerRegisterSerializer, CustomerResponseSerializer, LoanEligibilityRequestSerializer, LoanListSerializer, LoanSerializer
 # Create your views here.
 
 @api_view(['GET'])
@@ -117,7 +117,7 @@ def calculate_credit_score(customer):
             remaining = loan.loan_amount - (loan.emis_paid_on_time * loan.monthly_payment)
             current_debt += remaining
 
-        pass
+        # pass
     
     if current_debt > customer.approved_limit:
         return 0  # OVERRIDE CONDITION
@@ -221,3 +221,140 @@ def calculate_credit_score(customer):
     total_score = payment_history_score + num_loans_score + volume_score + activity_score
     
     return round(total_score)
+def calculate_emi(loan_amount, annual_interest_rate, tenure_months):
+    """
+    Calculate monthly EMI using compound interest formula
+    EMI = [P × r × (1+r)^n] / [(1+r)^n - 1]
+    where:
+    P = loan amount
+    r = monthly interest rate (annual rate / 12 / 100)
+    n = tenure in months
+    """
+    # YOUR TASK: Implement the EMI formula
+    # Hint 1: Convert annual interest rate to monthly: monthly_rate = annual_rate / 12 / 100
+    # Hint 2: Use the formula above
+    # Hint 3: Handle edge case: if interest_rate = 0, EMI = loan_amount / tenure
+    if annual_interest_rate == 0:
+        return loan_amount / tenure_months
+    monthly_rate = annual_interest_rate / 12 / 100
+    emi = (loan_amount * monthly_rate * (1 + monthly_rate) ** tenure_months) / ((1 + monthly_rate) ** tenure_months - 1)
+    return emi
+    
+    # pass  # Remove and write your code
+
+@api_view(['POST'])
+def check_eligibility(request):
+    """
+    API endpoint: /check-eligibility
+    Method: POST
+    Input: customer_id, loan_amount, interest_rate, tenure
+    Output: approval decision with corrected interest rate and EMI
+    """
+    
+    # Step 1: Validate input
+    serializer = LoanEligibilityRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    validated_data = serializer.validated_data
+    customer_id = validated_data['customer_id']
+    loan_amount = validated_data['loan_amount']
+    interest_rate = validated_data['interest_rate']
+    tenure = validated_data['tenure']
+    
+    # Step 2: Get customer
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return Response(
+            {"error": "Customer not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Step 3: Calculate credit score
+    credit_score = calculate_credit_score(customer)
+    
+    # Step 4: Check EMI constraint (sum of current EMIs > 50% salary?)
+    # YOUR TASK: Calculate sum of monthly payments for all active loans
+    # Hint: Loop through customer.loans.all(), check if active, sum monthly_payment
+    
+    current_emis = Decimal(0)
+    # TODO: Write the logic here
+    for loan in customer.loans.all():
+        if loan.end_date >= date(2026, 2, 9):  # Check if loan is active
+            current_emis += loan.monthly_payment
+    
+    # Check if adding new EMI would exceed 50% of salary
+    new_emi = calculate_emi(loan_amount, interest_rate, tenure)
+    total_emis_with_new_loan = current_emis + Decimal(new_emi)
+    
+    if total_emis_with_new_loan > (customer.monthly_salary * Decimal(0.5)):
+        return Response({
+            "customer_id": customer_id,
+            "approval": False,
+            "interest_rate": float(interest_rate),
+            "corrected_interest_rate": float(interest_rate),
+            "tenure": tenure,
+            "monthly_installment": float(new_emi),
+            "message": "Sum of current EMIs exceeds 50% of monthly salary"
+        })
+    
+    # Step 5: Determine approval and correct interest rate based on credit score
+    # YOUR TASK: Implement the approval logic
+    #
+    # If credit_score > 50:
+    #     approval = True
+    #     corrected_rate = interest_rate (no change)
+    #
+    # If 30 < credit_score <= 50:
+    #     if interest_rate < 12:
+    #         corrected_rate = 12
+    #     else:
+    #         corrected_rate = interest_rate
+    #     approval = True
+    #
+    # If 10 < credit_score <= 30:
+    #     if interest_rate < 16:
+    #         corrected_rate = 16
+    #     else:
+    #         corrected_rate = interest_rate
+    #     approval = True
+    #
+    # If credit_score <= 10:
+    #     approval = False
+    
+    # TODO: Write the logic here
+    if credit_score > 50:
+        approval = True
+        corrected_interest_rate = interest_rate
+    elif 30 < credit_score <= 50:
+        approval = True
+        if interest_rate < 12:
+            corrected_interest_rate = Decimal(12)
+        else:
+            corrected_interest_rate = interest_rate
+    elif 10 < credit_score <= 30:
+        approval = True
+        if interest_rate < 16:
+            corrected_interest_rate = Decimal(16)
+        else:
+            corrected_interest_rate = interest_rate
+    else:  # credit_score <= 10
+        approval = False
+        corrected_interest_rate = interest_rate
+
+    # approval = False
+    # corrected_interest_rate = interest_rate
+    
+    # Recalculate EMI with corrected interest rate
+    final_emi = calculate_emi(loan_amount, corrected_interest_rate, tenure)
+    
+    # Return response
+    return Response({
+        "customer_id": customer_id,
+        "approval": approval,
+        "interest_rate": float(interest_rate),
+        "corrected_interest_rate": float(corrected_interest_rate),
+        "tenure": tenure,
+        "monthly_installment": float(final_emi)
+    })
