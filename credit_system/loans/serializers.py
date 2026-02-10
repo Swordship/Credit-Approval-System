@@ -82,3 +82,11 @@ class CustomerResponseSerializer(serializers.ModelSerializer):
             'monthly_salary',
             'approved_limit'
         ]
+class LoanEligibilityRequestSerializer(serializers.Serializer):
+    """
+    Serializer for /check-eligibility request
+    """
+    customer_id = serializers.IntegerField()
+    loan_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    interest_rate = serializers.DecimalField(max_digits=5, decimal_places=2)
+    tenure = serializers.IntegerField()
