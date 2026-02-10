@@ -358,3 +358,112 @@ def check_eligibility(request):
         "tenure": tenure,
         "monthly_installment": float(final_emi)
     })
+@api_view(['POST'])
+def create_loan(request):
+    """
+    API endpoint: /create-loan
+    Method: POST
+    Input: customer_id, loan_amount, interest_rate, tenure
+    Output: Created loan if approved, error message if rejected
+    """
+    
+    # Step 1: Validate input
+    serializer = LoanEligibilityRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    validated_data = serializer.validated_data
+    customer_id = validated_data['customer_id']
+    loan_amount = validated_data['loan_amount']
+    interest_rate = validated_data['interest_rate']
+    tenure = validated_data['tenure']
+    
+    # Step 2: Get customer
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return Response(
+            {"error": "Customer not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Step 3: Calculate credit score
+    credit_score = calculate_credit_score(customer)
+    
+    # Step 4: Check EMI constraint
+    current_emis = Decimal(0)
+    current_date = date(2026, 2, 9)
+    
+    for loan in customer.loans.all():
+        if loan.end_date >= current_date:
+            current_emis += loan.monthly_payment
+    
+    new_emi = calculate_emi(loan_amount, interest_rate, tenure)
+    total_emis_with_new_loan = current_emis + Decimal(new_emi)
+    
+    if total_emis_with_new_loan > (customer.monthly_salary * Decimal(0.5)):
+        return Response({
+            "loan_id": None,
+            "customer_id": customer_id,
+            "loan_approved": False,
+            "message": "Sum of current EMIs exceeds 50% of monthly salary",
+            "monthly_installment": float(new_emi)
+        })
+    
+    # Step 5: Determine approval and corrected interest rate
+    if credit_score > 50:
+        approval = True
+        corrected_interest_rate = interest_rate
+    elif 30 < credit_score <= 50:
+        approval = True
+        if interest_rate < 12:
+            corrected_interest_rate = Decimal(12)
+        else:
+            corrected_interest_rate = interest_rate
+    elif 10 < credit_score <= 30:
+        approval = True
+        if interest_rate < 16:
+            corrected_interest_rate = Decimal(16)
+        else:
+            corrected_interest_rate = interest_rate
+    else:  # credit_score <= 10
+        approval = False
+        corrected_interest_rate = interest_rate
+    
+    # Step 6: If NOT approved, return rejection
+    if not approval:
+        return Response({
+            "loan_id": None,
+            "customer_id": customer_id,
+            "loan_approved": False,
+            "message": f"Credit score too low (score: {credit_score})",
+            "monthly_installment": float(new_emi)
+        })
+    
+    # Step 7: If APPROVED, create the loan!
+    final_emi = calculate_emi(loan_amount, corrected_interest_rate, tenure)
+    
+    # Calculate dates
+    start_date = date(2026, 2, 9)
+    end_date = start_date + relativedelta(months=tenure)
+    
+    # Create loan object
+    new_loan = Loan.objects.create(
+        customer=customer,
+        loan_amount=loan_amount,
+        tenure=tenure,
+        interest_rate=corrected_interest_rate,
+        monthly_payment=final_emi,
+        emis_paid_on_time=0,
+        date_of_approval=start_date,
+        end_date=end_date
+    )
+    
+    # Step 8: Return success response
+    return Response({
+        "loan_id": new_loan.id,
+        "customer_id": customer_id,
+        "loan_approved": True,
+        "message": "Loan approved",
+        "monthly_installment": float(final_emi)
+    }, status=status.HTTP_201_CREATED)
