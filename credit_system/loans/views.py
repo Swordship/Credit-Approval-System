@@ -467,3 +467,125 @@ def create_loan(request):
         "message": "Loan approved",
         "monthly_installment": float(final_emi)
     }, status=status.HTTP_201_CREATED)
+# ============================================================================
+# DEBUG ENDPOINTS (Remove these in production!)
+# ============================================================================
+
+@api_view(['GET'])
+def system_info(request):
+    """
+    API endpoint: /system-info
+    Method: GET
+    Returns: System configuration info
+    Shows what date the system is currently using
+    """
+    from django.conf import settings
+    
+    reference_date = getattr(settings, 'SYSTEM_REFERENCE_DATE', None)
+    current_date = get_current_date()
+    
+    return Response({
+        "system_mode": "DEMO" if reference_date else "PRODUCTION",
+        "reference_date_setting": reference_date,
+        "current_system_date": str(current_date),
+        "actual_today": str(date.today()),
+        "message": "DEMO mode uses reference date. PRODUCTION mode uses real current date."
+    })
+
+
+@api_view(['GET'])
+def debug_credit_score(request, customer_id):
+    """
+    API endpoint: /debug-score/<customer_id>
+    Method: GET
+    Returns: Detailed credit score breakdown
+    """
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Calculate credit score
+    score = calculate_credit_score(customer)
+    
+    # Get loan statistics
+    current_date = get_current_date()
+    total_loans = customer.loans.count()
+    active_loans = customer.loans.filter(end_date__gte=current_date).count()
+    completed_loans = customer.loans.filter(end_date__lt=current_date).count()
+    
+    # Calculate current debt
+    current_debt = Decimal(0)
+    for loan in customer.loans.all():
+        if loan.end_date >= current_date:
+            remaining = loan.loan_amount - (Decimal(loan.emis_paid_on_time) * loan.monthly_payment)
+            current_debt += remaining
+    
+    return Response({
+        "customer_id": customer_id,
+        "customer_name": f"{customer.first_name} {customer.last_name}",
+        "credit_score": score,
+        "approved_limit": float(customer.approved_limit),
+        "current_debt": float(current_debt),
+        "debt_utilization": f"{float((current_debt / customer.approved_limit) * 100):.2f}%" if customer.approved_limit > 0 else "0%",
+        "loan_statistics": {
+            "total_loans": total_loans,
+            "active_loans": active_loans,
+            "completed_loans": completed_loans
+        },
+        "approval_guidance": {
+            "50-100": "Loan approved at requested rate",
+            "30-50": "Loan approved, minimum 12% interest",
+            "10-30": "Loan approved, minimum 16% interest",
+            "0-10": "Loan rejected - too risky"
+        }
+    })
+
+
+@api_view(['GET'])
+def debug_customer_emis(request, customer_id):
+    """
+    API endpoint: /debug-emis/<customer_id>
+    Method: GET
+    Returns: Detailed EMI breakdown and loan capacity
+    """
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    current_date = get_current_date()
+    active_loans = []
+    total_emis = Decimal(0)
+    
+    for loan in customer.loans.all():
+        if loan.end_date >= current_date:
+            active_loans.append({
+                "loan_id": loan.id,
+                "loan_amount": float(loan.loan_amount),
+                "monthly_payment": float(loan.monthly_payment),
+                "emis_paid": loan.emis_paid_on_time,
+                "total_emis": loan.tenure,
+                "repayments_left": loan.tenure - loan.emis_paid_on_time,
+                "date_of_approval": str(loan.date_of_approval),
+                "end_date": str(loan.end_date)
+            })
+            total_emis += loan.monthly_payment
+    
+    fifty_percent = customer.monthly_salary * Decimal(0.5)
+    remaining_capacity = fifty_percent - total_emis
+    
+    return Response({
+        "customer_id": customer_id,
+        "customer_name": f"{customer.first_name} {customer.last_name}",
+        "monthly_salary": float(customer.monthly_salary),
+        "fifty_percent_salary": float(fifty_percent),
+        "current_total_emis": float(total_emis),
+        "emi_utilization_percentage": f"{float((total_emis / customer.monthly_salary) * 100):.2f}%",
+        "remaining_emi_capacity": float(remaining_capacity),
+        "can_afford_new_loan": remaining_capacity > 0,
+        "max_new_emi_allowed": float(max(remaining_capacity, 0)),
+        "active_loans_count": len(active_loans),
+        "active_loans": active_loans,
+        "status": "OVER LIMIT" if total_emis > fifty_percent else "WITHIN LIMIT"
+    })
