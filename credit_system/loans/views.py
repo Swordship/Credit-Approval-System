@@ -4,6 +4,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Customer, Loan
 from .serializers import CustomerRegisterSerializer, CustomerResponseSerializer, LoanEligibilityRequestSerializer, LoanListSerializer, LoanSerializer
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
+from decimal import Decimal
+from .utils import get_current_date
+# from loans.models import Customer, Loan
 # Create your views here.
 
 @api_view(['GET'])
@@ -77,11 +82,6 @@ def register_customer(request):
     response_serializer = CustomerResponseSerializer(customer)
     return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-from datetime import datetime, date
-from dateutil.relativedelta import relativedelta
-from decimal import Decimal
-from loans.models import Customer, Loan
-
 def months_between(start_date, end_date):
     """Calculate number of months between two dates"""
     if end_date < start_date:
@@ -94,7 +94,7 @@ def calculate_credit_score(customer):
     Calculate credit score (0-100) for a customer
     Current date: 2026-02-09
     """
-    current_date = date(2026, 2, 9)
+    current_date = get_current_date()
     
     # Get all customer loans
     loans = customer.loans.all()
@@ -281,7 +281,7 @@ def check_eligibility(request):
     current_emis = Decimal(0)
     # TODO: Write the logic here
     for loan in customer.loans.all():
-        if loan.end_date >= date(2026, 2, 9):  # Check if loan is active
+        if loan.end_date >= get_current_date():  # Check if loan is active
             current_emis += loan.monthly_payment
     
     # Check if adding new EMI would exceed 50% of salary
@@ -392,7 +392,7 @@ def create_loan(request):
     
     # Step 4: Check EMI constraint
     current_emis = Decimal(0)
-    current_date = date(2026, 2, 9)
+    current_date = get_current_date()
     
     for loan in customer.loans.all():
         if loan.end_date >= current_date:
@@ -444,7 +444,7 @@ def create_loan(request):
     final_emi = calculate_emi(loan_amount, corrected_interest_rate, tenure)
     
     # Calculate dates
-    start_date = date(2026, 2, 9)
+    start_date = get_current_date()
     end_date = start_date + relativedelta(months=tenure)
     
     # Create loan object

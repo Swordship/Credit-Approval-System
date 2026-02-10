@@ -127,3 +127,23 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ==============================================================================
+# CREDIT SYSTEM CONFIGURATION
+# ==============================================================================
+
+# Reference date for the credit scoring system
+# 
+# DEMO MODE (for assignment with historical data):
+#   Set to a specific date that aligns with the historical loan data
+#   Example: SYSTEM_REFERENCE_DATE = '2026-02-09'
+#
+# PRODUCTION MODE (for real-world deployment):
+#   Set to None to use the actual current date
+#   Example: SYSTEM_REFERENCE_DATE = None
+#
+# The historical data spans from 2011 to 2035, with most active loans
+# concentrated around 2020-2027. We use 2026-02-09 as a reference point
+# that makes the credit scoring meaningful for the demo data.
+
+SYSTEM_REFERENCE_DATE = '2026-02-09'  # Set to None for production
