@@ -90,3 +90,17 @@ class LoanEligibilityRequestSerializer(serializers.Serializer):
     loan_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     interest_rate = serializers.DecimalField(max_digits=5, decimal_places=2)
     tenure = serializers.IntegerField()
+class LoanCreateResponseSerializer(serializers.ModelSerializer):
+    """
+    Serializer for /create-loan response
+    """
+    class Meta:
+        model = Loan
+        fields = [
+            'id',
+            'customer',
+            'loan_amount',
+            'interest_rate',
+            'monthly_payment',
+            'tenure'
+        ]
